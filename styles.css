@@ -1,0 +1,78 @@
+/* ============================================================
+   X 振り仮名 - 样式
+   ============================================================ */
+
+/* ---- 振假名按钮 ---- */
+.jpfurigana-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  min-width: 34px;
+  padding: 0 8px;
+  border: none;
+  border-radius: 9999px;
+  background: transparent;
+  color: rgb(15, 20, 25);
+  font-size: 15px;
+  font-weight: 400;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease;
+  line-height: 1;
+  margin-right: 0;
+}
+
+.jpfurigana-btn:hover {
+  background: rgba(29, 155, 240, 0.1);
+  color: rgb(29, 155, 240);
+}
+
+.jpfurigana-btn:active {
+  background: rgba(29, 155, 240, 0.15);
+  transform: none;
+}
+
+.jpfurigana-btn.jpfurigana-active {
+  background: rgba(29, 155, 240, 0.1);
+  color: rgb(29, 155, 240);
+}
+
+.jpfurigana-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ---- 深色模式适配 ---- */
+@media (prefers-color-scheme: dark) {
+  .jpfurigana-btn {
+    color: rgb(231, 233, 234);
+  }
+  .jpfurigana-btn:hover {
+    background: rgba(29, 155, 240, 0.2);
+    color: rgb(29, 155, 240);
+  }
+  .jpfurigana-btn:active {
+    background: rgba(29, 155, 240, 0.25);
+  }
+}
+
+/* ---- Ruby 标注 ---- */
+.jpfurigana-ruby {
+  ruby-align: center;
+}
+
+.jpfurigana-ruby rt {
+  font-size: 0.8em;
+  color: rgb(29, 155, 240) !important;
+  font-weight: 500;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ---- 深色适配 ---- */
+@media (prefers-color-scheme: dark) {
+  .jpfurigana-ruby rt {
+    color: rgb(29, 155, 240) !important;
+  }
+}
