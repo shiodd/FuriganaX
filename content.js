@@ -40,64 +40,87 @@ function getTweetText(tweetElement) {
     parts.push(node.textContent);
   }
 
-  const text = parts.join('').trim();
+  const text = parts.join('');
   return text;
 }
 
-// ---- 添加 ruby 标注到推文中 ----
+// ---- 添加 ruby 标注到推文中（保留已有 HTML 元素：链接、emoji 等） ----
 function applyFurigana(tweetElement, words) {
   const textEl = tweetElement.querySelector('[data-testid="tweetText"]');
   if (!textEl) return;
 
-  // 清除已有标注
   clearFurigana(tweetElement);
 
-  // words 结构: [{kanji, kana}（需要标注的汉字）, {text}（直接文本）]
-  // 重建文本
-  const fragment = document.createDocumentFragment();
+  // 收集所有文本节点，记录每个节点在合并文本中的起止位置
+  const textNodes = [];
+  const ranges = []; // { node, start, end }
+  let offset = 0;
+  const walker = document.createTreeWalker(textEl, NodeFilter.SHOW_TEXT);
+  let node;
+  while ((node = walker.nextNode())) {
+    if (node.parentElement?.closest?.('ruby')) continue;
+    const len = node.textContent.length;
+    if (len === 0) continue;
+    textNodes.push(node);
+    ranges.push({ node, start: offset, end: offset + len });
+    offset += len;
+  }
+  if (textNodes.length === 0) return;
 
+  // 将 words 中需要标注的词定位到文本节点（按节点索引分组）
+  const repl = new Map(); // nodeIndex -> [{start, end, kanji, kana}]
+  let pos = 0;
   for (const w of words) {
     if (w.kanji && w.kana) {
+      const wLen = w.kanji.length;
+      for (let i = 0; i < ranges.length; i++) {
+        const r = ranges[i];
+        if (pos >= r.end || pos + wLen <= r.start) continue;
+        const s = Math.max(pos, r.start) - r.start;
+        const e = Math.min(pos + wLen, r.end) - r.start;
+        if (e <= s) continue;
+        const ks = w.kanji.slice(Math.max(r.start - pos, 0), wLen - Math.max(pos + wLen - r.end, 0));
+        if (!repl.has(i)) repl.set(i, []);
+        repl.get(i).push({ start: s, end: e, kanji: ks, kana: w.kana });
+      }
+    }
+    pos += (w.text || w.kanji || '').length;
+  }
+
+  // 逐个文本节点，从右到左用 splitText 插入 ruby
+  for (const [idx, reps] of repl) {
+    reps.sort((a, b) => b.start - a.start);
+    let tn = textNodes[idx];
+    for (const r of reps) {
+      const after = tn.splitText(r.end);
+      const kanjiNode = tn.splitText(r.start);
       const ruby = document.createElement('ruby');
       ruby.className = 'jpfurigana-ruby';
-      ruby.textContent = w.kanji;
-
+      ruby.textContent = r.kanji;
       const rt = document.createElement('rt');
       rt.className = 'jpfurigana-rt';
-      rt.textContent = w.kana;
+      rt.textContent = r.kana;
       ruby.appendChild(rt);
-      fragment.appendChild(ruby);
-    } else {
-      fragment.appendChild(document.createTextNode(w.text || ''));
+      kanjiNode.parentNode.replaceChild(ruby, kanjiNode);
     }
   }
 
-  textEl.innerHTML = '';
-  textEl.appendChild(fragment);
   textEl.dataset.jpfurigana = '1';
 }
 
-// ---- 清除标注，恢复原文 ----
+// ---- 清除标注（只移除 ruby，保留链接/emoji 等 HTML 元素） ----
 function clearFurigana(tweetElement) {
   const textEl = tweetElement.querySelector('[data-testid="tweetText"]');
   if (!textEl) return;
-
   if (textEl.dataset.jpfurigana !== '1') return;
 
-  // 提取纯文本
-  const rawText = Array.from(textEl.childNodes)
-    .map(n => {
-      if (n.nodeType === Node.TEXT_NODE) return n.textContent;
-      // ruby 内的 textContent 已含 kanji（rt 内容会自动被浏览器隔离）
-      if (n.nodeName === 'RUBY') {
-        const rt = n.querySelector('rt');
-        return rt ? n.textContent.replace(rt.textContent, '') : n.textContent;
-      }
-      return n.textContent;
-    })
-    .join('');
-
-  textEl.innerHTML = rawText;
+  const rubies = textEl.querySelectorAll('ruby.jpfurigana-ruby');
+  for (let i = rubies.length - 1; i >= 0; i--) {
+    const ruby = rubies[i];
+    const rt = ruby.querySelector('rt');
+    const kanji = rt ? ruby.textContent.replace(rt.textContent, '') : ruby.textContent;
+    ruby.replaceWith(document.createTextNode(kanji));
+  }
   delete textEl.dataset.jpfurigana;
 }
 
